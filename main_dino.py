@@ -33,7 +33,6 @@ from torchvision import models as torchvision_models
 import utils
 import vision_transformer as vits
 from vision_transformer import DINOHead
-from sen12ms import AllSen12MSDataset
 
 torchvision_archs = sorted(name for name in torchvision_models.__dict__
     if name.islower() and not name.startswith("__")
@@ -141,11 +140,7 @@ def train_dino(args):
         args.local_crops_scale,
         args.local_crops_number,
     )
-    #dataset = datasets.ImageFolder(args.data_path, transform=transform)
-    from sen12ms import get_transform
-    dataset = AllSen12MSDataset(args.data_path, "train", transform=transform, tansform_coord=None,
-                 classes=None, seasons=None, split_by_region=True, download=False)
-
+    dataset = datasets.ImageFolder(args.data_path, transform=transform)
     sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True)
     data_loader = torch.utils.data.DataLoader(
         dataset,
@@ -319,12 +314,10 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             if i == 0:  # only the first group is regularized
                 param_group["weight_decay"] = wd_schedule[it]
 
-
+        # move images to gpu
+        images = [im.cuda(non_blocking=True) for im in images]
         # teacher and student forward passes + compute dino loss
         with torch.cuda.amp.autocast(fp16_scaler is not None):
-            # move images to gpu
-            images = [im.cuda(non_blocking=True).half() for im in images]
-
             teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
             student_output = student(images)
             loss = dino_loss(student_output, teacher_output, epoch)
