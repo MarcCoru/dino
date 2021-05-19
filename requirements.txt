@@ -1,0 +1,10 @@
+torch
+numpy
+pandas
+geopandas
+torchmeta
+scikit-image
+albumentations
+rasterio
+tqdm
+h5py
