@@ -167,17 +167,8 @@ def train_dino(args):
         teacher = vits.__dict__[args.arch](patch_size=args.patch_size)
         embed_dim = student.embed_dim
 
-        # replace dimensions of models
-        def replace_input_layer(model, inchannels):
-            kernel_size = model.patch_embed.proj.kernel_size
-            stride = model.patch_embed.proj.stride
-            out_channels = model.patch_embed.proj.out_channels
-            inconv = torch.nn.Conv2d(inchannels, out_channels, kernel_size=kernel_size, stride=stride)
-            model.patch_embed.proj = inconv
-            return model
-
-        student = replace_input_layer(student, inchannels=13)
-        teacher = replace_input_layer(teacher, inchannels=13)
+        student = utils.replace_input_layer(student, inchannels=13)
+        teacher = utils.replace_input_layer(teacher, inchannels=13)
 
     # otherwise, we check if the architecture is in torchvision models
     elif args.arch in torchvision_models.__dict__.keys():

@@ -1,11 +1,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,13 +28,23 @@ import vision_transformer as vits
 def extract_feature_pipeline(args):
     # ============ preparing data ... ============
     transform = pth_transforms.Compose([
-        pth_transforms.Resize(256, interpolation=3),
-        pth_transforms.CenterCrop(224),
-        pth_transforms.ToTensor(),
-        pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        pth_transforms.CenterCrop(96)
     ])
-    dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train"), transform=transform)
-    dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val"), transform=transform)
+    #dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train"), transform=transform)
+    #dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val"), transform=transform)
+
+    dataset_train = ReturnIndexDataset(args.data_path, "train", transform=transform, tansform_coord=None,
+                 classes=None, seasons=None, split_by_region=True, download=False)
+    dataset_val = ReturnIndexDataset(args.data_path, "val", transform=transform, tansform_coord=None,
+                 classes=None, seasons=None, split_by_region=True, download=False)
+
+    """
+    args.data_path, "train", transform=transform, tansform_coord=None,
+                 classes=None, seasons=None, split_by_region=True, download=False
+                 """
+
+
+
     sampler = torch.utils.data.DistributedSampler(dataset_train, shuffle=False)
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
@@ -55,6 +65,7 @@ def extract_feature_pipeline(args):
 
     # ============ building network ... ============
     model = vits.__dict__[args.arch](patch_size=args.patch_size, num_classes=0)
+    utils.replace_input_layer(model, inchannels=13)
     print(f"Model {args.arch} {args.patch_size}x{args.patch_size} built.")
     model.cuda()
     utils.load_pretrained_weights(model, args.pretrained_weights, args.checkpoint_key, args.arch, args.patch_size)
@@ -88,7 +99,7 @@ def extract_features(model, data_loader):
     for samples, index in metric_logger.log_every(data_loader, 10):
         samples = samples.cuda(non_blocking=True)
         index = index.cuda(non_blocking=True)
-        feats = model(samples).clone()
+        feats = model(samples.float()).clone()
 
         # init storage feature matrix
         if dist.get_rank() == 0 and features is None:
@@ -168,7 +179,9 @@ def knn_classifier(train_features, train_labels, test_features, test_labels, k, 
     return top1, top5
 
 
-class ReturnIndexDataset(datasets.ImageFolder):
+#class ReturnIndexDataset(datasets.ImageFolder):
+from sen12ms import AllSen12MSDataset
+class ReturnIndexDataset(AllSen12MSDataset):
     def __getitem__(self, idx):
         img, lab = super(ReturnIndexDataset, self).__getitem__(idx)
         return img, idx

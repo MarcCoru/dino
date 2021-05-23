@@ -33,6 +33,16 @@ import torch.distributed as dist
 from PIL import ImageFilter, ImageOps
 import torchvision
 
+
+# replace dimensions of models
+def replace_input_layer(model, inchannels):
+    kernel_size = model.patch_embed.proj.kernel_size
+    stride = model.patch_embed.proj.stride
+    out_channels = model.patch_embed.proj.out_channels
+    inconv = torch.nn.Conv2d(inchannels, out_channels, kernel_size=kernel_size, stride=stride)
+    model.patch_embed.proj = inconv
+    return model
+
 class GaussianBlur(object):
     """
     Apply Gaussian Blur to the PIL image.
@@ -72,6 +82,8 @@ def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_nam
             print(f"Take key {checkpoint_key} in provided checkpoint dict")
             state_dict = state_dict[checkpoint_key]
         state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+        state_dict = {k.replace("head.", ""): v for k, v in state_dict.items()}
         msg = model.load_state_dict(state_dict, strict=False)
         print('Pretrained weights found at {} and loaded with msg: {}'.format(pretrained_weights, msg))
     else:

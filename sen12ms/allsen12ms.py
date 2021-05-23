@@ -7,6 +7,9 @@ import numpy as np
 from .download import download_sen12ms, download_regions
 import geopandas as gpd
 
+CLASSES = ['Barren', 'Savanna', 'Urban Build-up', 'Croplands', 'Grassland',
+       'Forests', 'Water', 'Wetlands', 'Shrubland']
+
 class AllSen12MSDataset(torch.utils.data.Dataset):
     def __init__(self, root, fold, transform, tansform_coord=None,
                  classes=None, seasons=None, split_by_region=True, download=True):
@@ -74,6 +77,10 @@ class AllSen12MSDataset(torch.utils.data.Dataset):
 
         # shuffle the tiles once
         self.paths = self.paths.sample(frac=1)
+
+        # samples (list): List of (sample path, class_index) tuples
+        # following attribute of torchvision.datasets.ImageFolder
+        self.samples = [(p, CLASSES.index(c)) for p, c in zip(self.paths.h5path, self.paths.maxclass)]
 
     def __len__(self):
         return len(self.paths)
